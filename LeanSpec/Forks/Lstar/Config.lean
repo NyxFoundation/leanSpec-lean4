@@ -2,10 +2,11 @@
 Chain and consensus configuration constants.
 
 Mirrors `src/lean_spec/spec/forks/lstar/config.py` in leanSpec. Only the
-constants consumed by the ported state-transition logic are declared;
-SSZ list limits (`HISTORICAL_ROOTS_LIMIT`, `VALIDATOR_REGISTRY_LIMIT`, …)
-are not enforced by the Lean `Array` model and are added when a
-proposition needs them.
+constants consumed by the ported logic are declared; SSZ list limits
+(`VALIDATOR_REGISTRY_LIMIT`, …) are not enforced by the Lean `Array`
+model and are added when a proposition needs them.
+`HISTORICAL_ROOTS_LIMIT` is declared below not as a list limit but
+because the fork-choice horizon guards bound a block's slot gap by it.
 
 Supports the ST-* propositions from `docs/lean4-proof-propositions.md`
 (no theorems in this file).

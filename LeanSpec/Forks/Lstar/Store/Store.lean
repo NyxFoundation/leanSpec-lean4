@@ -42,9 +42,10 @@ Divergences from Python, documented per function:
     missing head state keeps the previous `latest_finalized`
     (`update_head`'s `store.states[new_head]` lookup; the M-4
     blocks-states alignment of leanEthereum/leanSpec#1176).
-  - `create_store`, `on_block`, `on_gossip_*`,
+  - `on_block` is modeled in `Store/OnBlock.lean` (FC-7) and
+    `Store/ChainAlignment.lean` (FC-8); `create_store`, `on_gossip_*`,
     `prune_stale_attestation_data`, `accept_new_attestations`, and
-    `update_safe_target` are follow-up work (FC-5, STOR-*).
+    `update_safe_target` are follow-up work.
 
 Proves FC-1 and FC-3 from `docs/lean4-proof-propositions.md`:
   - FC-1: head selection is deterministic — `updateHead` is a pure total
@@ -59,7 +60,8 @@ Proves FC-1 and FC-3 from `docs/lean4-proof-propositions.md`:
 
 `Store.WellFormed` states the store invariants extracted in
 leanEthereum/leanSpec#1176 (documented and partially enforced upstream by
-leanEthereum/leanSpec#1179) for the FC-2 / FC-4 follow-ups.
+leanEthereum/leanSpec#1179); FC-2 / FC-4 / FC-6 consume them in
+`Store/Ancestry.lean`.
 -/
 
 import LeanSpec.Forks.Lstar.Containers.Aggregation

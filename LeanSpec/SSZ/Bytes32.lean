@@ -1,8 +1,9 @@
 /-
 SSZ Bytes32 primitive.
 
-Mirrors `src/lean_spec/types/bytes.py` in leanSpec:
-  - `Bytes32` is a fixed-length 32-byte sequence (subclass of Python `bytes`)
+Mirrors `src/lean_spec/spec/ssz/byte_arrays.py` in leanSpec:
+  - `class Bytes32(BaseBytes)` with `LENGTH = 32` — a fixed-length 32-byte
+    sequence (`BaseBytes` subclasses Python `bytes`)
   - Length is statically guaranteed: every value has `len(b) == 32`
 
 In Lean we model this as a `ByteArray` subtype carrying the size invariant.

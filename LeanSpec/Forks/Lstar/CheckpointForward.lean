@@ -17,7 +17,7 @@ exception is genesis anchoring (the first block fills in its parent root
 at slot 0), excluded by the `latestBlockHeader.slot ≠ 0` hypothesis.
 
 Cross-branch root *ancestry* is deliberately out of the STF's reach:
-leanEthereum/leanSpec#1182 documents on `Checkpoint.advance_to` that
+leanEthereum/leanSpec#1179 documents on `Checkpoint.advance_to` that
 "selection is by slot only" and on `Store.latest_finalized` that the
 ancestry is a separate store invariant.
 

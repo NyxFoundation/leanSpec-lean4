@@ -38,7 +38,18 @@ open LeanSpec.Forks.Lstar (Interval)
 
 /-- Slots an attested slot is retained for after its own
 (`ATTESTED_SLOT_RETENTION`, an `int` upstream, defined in
-`service.py`). -/
+`service.py`).
+
+The duty always attests the *current* slot (`slot = clock.current_slot()`),
+so once the clock advances a past slot can never be attested again and its
+dedup entry is dead weight — the set fundamentally only needs the current
+slot to block a second vote across the slot's `INTERVALS_PER_SLOT` passes.
+The value `4` is therefore a conservative margin absorbing loop lag (a slow
+duty spilling across slots) and clock jitter, not a figure the upstream spec
+derives from a formula. Safety does not depend on it: `attested_after_duty`
+uses only `threshold = slot - RETENTION ≤ slot`, which holds for every
+`RETENTION` under truncated `Nat` subtraction, so the value tunes the
+memory/margin trade-off, never the double-vote guarantee. -/
 def ATTESTED_SLOT_RETENTION : Nat := 4
 
 /-- The duty-relevant validator-service state: the slots this service

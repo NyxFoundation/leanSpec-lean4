@@ -1,9 +1,10 @@
 /-
 SSZ fixed-length Vector primitive.
 
-Mirrors `src/lean_spec/types/vector.py` in leanSpec:
-  - `SSZVector[T, n]` is a fixed-length homogeneous sequence of exactly `n`
-    elements (the fixed-length counterpart of the variable-length `SSZList`).
+Mirrors `src/lean_spec/spec/ssz/collections.py` in leanSpec:
+  - `SSZVector[T]` with `LENGTH = n` is a fixed-length homogeneous sequence
+    of exactly `n` elements (the fixed-length counterpart of the
+    variable-length `SSZList`, which is bounded by `LIMIT` instead).
   - Length is statically guaranteed: every value has `len(v) == n`.
 
 In Lean we model this as an `Array T` carrying the size invariant in the type,

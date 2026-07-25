@@ -34,10 +34,10 @@ function and fork-choice attestation validation:
   - `unknownParentBlock`                ↔ `UNKNOWN_PARENT_BLOCK`
   - `blockSlotGapTooLarge`              ↔ `BLOCK_SLOT_GAP_TOO_LARGE`
   - `blockTooFarInFuture`               ↔ `BLOCK_TOO_FAR_IN_FUTURE`
-  - `duplicateAttestationData`          ↔ `DUPLICATE_ATTESTATION_DATA`
-                                          (both added by the pending
+                                          (both added by
                                           leanEthereum/leanSpec#1182,
                                           fixing issue #1171)
+  - `duplicateAttestationData`          ↔ `DUPLICATE_ATTESTATION_DATA`
 
 The `STError` name is historical — the state-transition function was
 modeled first; the type now carries every modeled rejection reason, like
