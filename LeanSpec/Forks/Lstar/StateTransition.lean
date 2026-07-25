@@ -154,7 +154,8 @@ advanced to, be newer than the latest header, and come from the scheduled
 round-robin proposer. Genesis is the chain's anchor, so the first block
 forces its parent to justified and finalized. History and the
 justified-slot tracking window are extended, then the block's header is
-installed with zeroed roots (hash-free; see the module docstring). -/
+installed — carrying the block's own `parentRoot`, with `stateRoot` and
+`bodyRoot` zeroed (hash-free; see the module docstring). -/
 def processBlockHeader (s : State) (b : Block) : ST.Result State :=
   if b.slot ≠ s.slot then
     .error (.invalidSlot s.slot b.slot)

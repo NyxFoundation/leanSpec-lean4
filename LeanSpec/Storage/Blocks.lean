@@ -61,9 +61,12 @@ must be known (`UNKNOWN_PARENT_BLOCK`), the slot may run at most
 — the empty-slot loop in the transition runs once per slot from the
 parent to the block), and at most one slot past the store clock
 (`BLOCK_TOO_FAR_IN_FUTURE`), per leanEthereum/leanSpec#1182.
-The insertion is the upstream `dict` assignment, replacing any entry
-with the same root. Python's negative slot gap and the truncated `Nat`
-subtraction both pass the gap guard. -/
+The insertion is the upstream `dict` assignment; it replaces any entry
+with the same root, which upstream never exercises — `on_block`
+early-returns on a block already in the store, so the write is always
+fresh (`Store.onBlock` models that skip). Replace-by-key keeps this
+model total without it. Python's negative slot gap and the truncated
+`Nat` subtraction both pass the gap guard. -/
 def insertBlock (st : LeanSpec.Forks.Lstar.Store) (root : Root)
     (b : Block) : ST.Result LeanSpec.Forks.Lstar.Store :=
   match st.getState? b.parentRoot with
