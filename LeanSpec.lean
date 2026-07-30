@@ -18,6 +18,7 @@ import LeanSpec.Forks.Lstar.StateTransition
 import LeanSpec.Forks.Lstar.Store.Ancestry
 import LeanSpec.Forks.Lstar.Store.BlockProduction
 import LeanSpec.Forks.Lstar.Store.ChainAlignment
+import LeanSpec.Forks.Lstar.Store.IncrementalWeights
 import LeanSpec.Forks.Lstar.Store.OnBlock
 import LeanSpec.Forks.Lstar.Store.Prune
 import LeanSpec.Forks.Lstar.Store.Store
