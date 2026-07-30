@@ -310,8 +310,10 @@ def extractAttestationsFromAggregatedPayloads
 
 /-- Credit one vote to its head block and every ancestor above
 `startSlot` (the climb inside `_accumulate_ancestor_weights`): the walk
-stops at the anchor slot or where the chain leaves the known tree. -/
-private def creditChain (st : Store) (startSlot : Slot) :
+stops at the anchor slot or where the chain leaves the known tree.
+Public so the incremental-weight lemmas (#67,
+`Store/IncrementalWeights.lean`) can reason about each step. -/
+def creditChain (st : Store) (startSlot : Slot) :
     Nat → Root → Weights → Weights
   | 0, _, w => w
   | fuel + 1, current, w =>
