@@ -23,12 +23,18 @@ store selects. The proof splits along the structure of the walk:
     size gives the same result (`creditChain_fuel_stable`,
     `ghostWalk_fuel_stable`).
 
-Main theorem: `updateHead_head_prune` — `(updateHead (prune st)).head =
-(updateHead st).head` for any `WellFormed` store. The finalized-
-checkpoint half of `update_head` (the `descendToSlot` re-derivation) is
-follow-up work; it needs the store-finalization monotonicity discussion
-of leanEthereum/leanSpec#1176 M-3 because a head state may finalize
-below the pruning horizon.
+Main theorems:
+  - `updateHead_head_prune` — `(updateHead (prune st)).head =
+    (updateHead st).head` for any `WellFormed` store, hypothesis-free.
+  - `updateHead_prune` — head **and** re-derived finalized checkpoint
+    agree, under one extra hypothesis: no stored post-state finalizes
+    below the store's own finalized checkpoint. Upstream keeps
+    `latest_finalized` reorg-mutable (leanEthereum/leanSpec#1176 M-3),
+    so this monotonicity is exactly the condition a pruning client must
+    ensure — the M-3 divergence surfaces here as the precise boundary
+    of pruning safety (`descend_finalize_prune` handles the walk
+    landing off the pruning horizon: both stores then miss the
+    exact-slot check and keep the previous checkpoint).
 -/
 
 import LeanSpec.Forks.Lstar.Store.Prune
@@ -667,6 +673,209 @@ theorem updateHead_head_prune [SSZ.HasHashTreeRoot AttestationData]
       (extractAttestationsFromAggregatedPayloads
         st.latestKnownAggregatedPayloads st.latestFinalized.slot) none
   exact computeLmdGhostHead_prune hwf hba hbaslot hbj hkj _
+
+
+/-! ## Finalized-checkpoint equivalence -/
+
+/-- The checkpoint `update_head` derives from a walk result: the stored
+block at the result, when it sits exactly at the head state's finalized
+slot; the previous checkpoint otherwise. -/
+private def finalizeAt (stX : Store) (old : Checkpoint) (fs : Slot)
+    (root : Root) : Checkpoint :=
+  match stX.getBlock? root with
+  | none => old
+  | some b => if b.slot = fs then { root := root, slot := fs } else old
+
+/-- The finalized re-derivation stops immediately at or below the target
+slot, at any fuel. -/
+private theorem descendToSlot_stop {st : Store} {fs : Slot} {r : Root}
+    {b : Block} (h : st.getBlock? r = some b) (hle : ¬fs < b.slot) :
+    ∀ (fuel : Nat), descendToSlot st fs fuel r = r
+  | 0 => rfl
+  | _ + 1 => by
+    unfold descendToSlot
+    rw [h]
+    dsimp only
+    rw [if_neg hle]
+
+/-- The finalized re-derivation from a subtree block yields the same
+checkpoint in both stores, provided the target slot sits at or above the
+pruning horizon. The walks themselves may differ — when the chain jumps
+past the target slot into pruned territory, the full store descends one
+block further — but both landings then miss the exact-slot check, so the
+derived checkpoint agrees. -/
+private theorem descend_finalize_prune {st : Store} (hwf : WellFormed st)
+    {ba : Block} (hba : st.getBlock? st.latestFinalized.root = some ba)
+    (hbaslot : ba.slot = st.latestFinalized.slot)
+    {fs : Slot} (hfs : st.latestFinalized.slot ≤ fs) (old : Checkpoint) :
+    ∀ (f₁ f₂ : Nat) (cur : Root) (bcur : Block),
+      st.getBlock? cur = some bcur → keepBlock st (cur, bcur) = true →
+      keptBelow st bcur.slot < f₁ → keptBelow st bcur.slot < f₂ →
+      finalizeAt (prune st) old fs (descendToSlot (prune st) fs f₁ cur)
+        = finalizeAt st old fs (descendToSlot st fs f₂ cur)
+  | 0, _, _, bcur, hcur, hkcur, h1, _ => by
+    exfalso
+    have : 0 < keptBelow st bcur.slot := by
+      apply List.length_pos_of_mem
+      refine List.mem_filter.mpr ⟨getBlock?_eq_some_mem hcur, ?_⟩
+      exact (Bool.and_eq_true ..).mpr
+        ⟨hkcur, decide_eq_true (UInt64.le_refl _)⟩
+    omega
+  | _ + 1, 0, _, bcur, hcur, hkcur, _, h2 => by
+    exfalso
+    have : 0 < keptBelow st bcur.slot := by
+      apply List.length_pos_of_mem
+      refine List.mem_filter.mpr ⟨getBlock?_eq_some_mem hcur, ?_⟩
+      exact (Bool.and_eq_true ..).mpr
+        ⟨hkcur, decide_eq_true (UInt64.le_refl _)⟩
+    omega
+  | f₁ + 1, f₂ + 1, cur, bcur, hcur, hkcur, h1, h2 => by
+    have hcurP : (prune st).getBlock? cur = some bcur :=
+      (getBlock?_prune_iff hwf.blocksKeysNodup cur bcur).mpr ⟨hcur, hkcur⟩
+    unfold descendToSlot
+    rw [hcur, hcurP]
+    dsimp only
+    by_cases hlt : fs < bcur.slot
+    · rw [if_pos hlt, if_pos hlt]
+      cases hp : st.getBlock? bcur.parentRoot with
+      | none =>
+        rw [getBlock?_prune_none_of_none hwf.blocksKeysNodup hp]
+        -- Both walks stop at `cur`; the derived checkpoints coincide.
+        unfold finalizeAt
+        rw [hcur, hcurP]
+      | some bp =>
+        by_cases hkslot : st.latestFinalized.slot ≤ bp.slot
+        · -- The parent is on the subtree: both stores descend.
+          have hkp : keepBlock st (bcur.parentRoot, bp) = true :=
+            keepBlock_of_chain hwf hba hbaslot hcur hkcur hp
+              (.inr (ProperAncestor.step hcur)) hkslot
+          have hpP : (prune st).getBlock? bcur.parentRoot = some bp :=
+            (getBlock?_prune_iff hwf.blocksKeysNodup _ bp).mpr ⟨hp, hkp⟩
+          rw [hpP]
+          dsimp only
+          have hplt : bp.slot < bcur.slot :=
+            hwf.parentSlotLt (cur, bcur) (getBlock?_eq_some_mem hcur)
+              (bcur.parentRoot, bp) (getBlock?_eq_some_mem hp) rfl
+          have hdec : keptBelow st bp.slot < keptBelow st bcur.slot := by
+            apply filter_length_lt' _ _ st.blocks
+            · intro x _ hx
+              obtain ⟨hk, hd⟩ := (Bool.and_eq_true ..).mp hx
+              refine (Bool.and_eq_true ..).mpr ⟨hk, decide_eq_true ?_⟩
+              exact UInt64.le_trans (of_decide_eq_true hd)
+                (UInt64.le_of_lt hplt)
+            · exact getBlock?_eq_some_mem hcur
+            · exact (Bool.and_eq_true ..).mpr
+                ⟨hkcur, decide_eq_true (UInt64.le_refl _)⟩
+            · refine (Bool.and_eq_false_iff ..).mpr (Or.inr ?_)
+              exact decide_eq_false (UInt64.not_le.mpr hplt)
+          exact descend_finalize_prune hwf hba hbaslot hfs old f₁ f₂
+            bcur.parentRoot bp hp hkp (by omega) (by omega)
+        · -- The parent sits below the pruning horizon: the pruned store
+          -- stops at `cur`, the full store lands on the parent — and
+          -- both miss the exact-slot check, so the old checkpoint
+          -- survives on both sides.
+          have hkpf : keepBlock st (bcur.parentRoot, bp) = false := by
+            cases hkk : keepBlock st (bcur.parentRoot, bp) with
+            | false => rfl
+            | true => exact absurd (keepBlock_slot_ge hkk) hkslot
+          rw [getBlock?_prune_none_of_notkept hwf.blocksKeysNodup
+            hp hkpf]
+          dsimp only
+          have hpstop : ¬fs < bp.slot := by
+            intro hcon
+            exact hkslot (UInt64.le_of_lt
+              (UInt64.lt_of_le_of_lt hfs hcon))
+          rw [descendToSlot_stop hp hpstop f₂]
+          unfold finalizeAt
+          rw [hcurP, hp]
+          have hne₁ : ¬bcur.slot = fs := by
+            intro he
+            rw [he] at hlt
+            exact absurd hlt (UInt64.lt_irrefl _)
+          have hne₂ : ¬bp.slot = fs := by
+            intro he
+            rw [he] at hkslot
+            exact hkslot hfs
+          dsimp only
+          rw [if_neg hne₁, if_neg hne₂]
+    · rw [if_neg hlt, if_neg hlt]
+      unfold finalizeAt
+      rw [hcur, hcurP]
+
+/-- `update_head`'s finalized checkpoint, as `finalizeAt` over the
+re-derivation walk from the selected head. -/
+private theorem updateHead_latestFinalized_eq
+    [SSZ.HasHashTreeRoot AttestationData] (stX : Store) :
+    (updateHead stX).latestFinalized =
+      match stX.getState? (updateHead stX).head with
+      | none => stX.latestFinalized
+      | some hs =>
+        finalizeAt stX stX.latestFinalized hs.latestFinalized.slot
+          (descendToSlot stX hs.latestFinalized.slot
+            (stX.blocks.length + 1) (updateHead stX).head) := rfl
+
+/-- #71 (observational equivalence of `update_head`): pruning below the
+finalized root changes neither the selected head nor the re-derived
+finalized checkpoint. The single extra hypothesis is finalization
+monotonicity of the stored states — no stored post-state finalizes
+below the store's own finalized checkpoint. Upstream keeps
+`latest_finalized` reorg-mutable (leanEthereum/leanSpec#1176 M-3), so
+this is exactly the condition a pruning client must ensure, mirroring
+consensus-specs' monotone `update_checkpoints`. -/
+theorem updateHead_prune [SSZ.HasHashTreeRoot AttestationData]
+    {st : Store} (hwf : WellFormed st)
+    (hmono : ∀ r s₀, st.getState? r = some s₀ →
+      st.latestFinalized.slot ≤ s₀.latestFinalized.slot) :
+    (updateHead (prune st)).head = (updateHead st).head ∧
+    (updateHead (prune st)).latestFinalized
+      = (updateHead st).latestFinalized := by
+  have hhead := updateHead_head_prune (st := st) hwf
+  refine ⟨hhead, ?_⟩
+  -- Subtree facts for the finalized anchor.
+  obtain ⟨bj, hbj⟩ := Option.isSome_iff_exists.mp hwf.justifiedInBlocks
+  have hjd := hwf.justifiedDescendsFromFinalized
+  unfold checkpointIsAncestor at hjd
+  by_cases hslotle : st.latestJustified.slot < st.latestFinalized.slot
+  · rw [if_pos hslotle] at hjd; cases hjd
+  rw [if_neg hslotle] at hjd
+  obtain ⟨hancJ, ba, hba, hbaslot⟩ :=
+    ancestorWalk_sound st st.latestFinalized (st.blocks.length + 1)
+      st.latestJustified.root hjd
+  -- The selected head is stored and on the subtree.
+  have hHrel : AncestorOrEqual st st.latestJustified.root
+      (updateHead st).head := head_descends_from_justified st hwf
+  have hHstored : ∃ bH, st.getBlock? (updateHead st).head = some bH := by
+    cases hHrel with
+    | inl heq => exact ⟨bj, heq ▸ hbj⟩
+    | inr hpa => exact hpa.descendant_block
+  obtain ⟨bH, hbH⟩ := hHstored
+  have hkH : keepBlock st ((updateHead st).head, bH) = true :=
+    keepBlock_of_ancestorOrEqual hwf hba hbaslot hbH
+      (ancestorOrEqual_trans hancJ hHrel)
+  -- The head state survives pruning unchanged.
+  obtain ⟨hs, hstate⟩ := Option.isSome_iff_exists.mp
+    ((hwf.blocksStatesAligned (updateHead st).head).mp
+      (by rw [hbH]; rfl))
+  have hstateP : (prune st).getState? (updateHead st).head = some hs := by
+    refine (getState?_prune_iff hwf.statesKeysNodup _ hs).mpr
+      ⟨hstate, ?_⟩
+    unfold keepState
+    rw [hbH]
+    exact hkH
+  -- Reduce both sides to the walk derivation and compare.
+  rw [updateHead_latestFinalized_eq (prune st),
+    updateHead_latestFinalized_eq st, hhead, hstateP, hstate]
+  dsimp only
+  have hpfin : (prune st).latestFinalized = st.latestFinalized := rfl
+  rw [hpfin]
+  exact descend_finalize_prune hwf hba hbaslot
+    (hmono _ hs hstate) st.latestFinalized
+    ((prune st).blocks.length + 1) (st.blocks.length + 1)
+    (updateHead st).head bH hbH hkH
+    (Nat.lt_succ_of_le (keptBelow_le st bH.slot))
+    (Nat.lt_succ_of_le (Nat.le_trans (keptBelow_le st bH.slot)
+      ((prune_blocks_sublist st).length_le)))
+
 
 end Store
 end LeanSpec.Forks.Lstar
