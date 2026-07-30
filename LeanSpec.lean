@@ -22,6 +22,7 @@ import LeanSpec.Forks.Lstar.Store.IncrementalWeights
 import LeanSpec.Forks.Lstar.Store.OnBlock
 import LeanSpec.Forks.Lstar.Store.Prune
 import LeanSpec.Forks.Lstar.Store.Store
+import LeanSpec.Networking.Allocation
 import LeanSpec.Networking.Config
 import LeanSpec.Networking.ReqResp
 import LeanSpec.SSZ.Boolean
