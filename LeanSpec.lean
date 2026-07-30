@@ -20,6 +20,7 @@ import LeanSpec.Forks.Lstar.Store.BlockProduction
 import LeanSpec.Forks.Lstar.Store.ChainAlignment
 import LeanSpec.Forks.Lstar.Store.OnBlock
 import LeanSpec.Forks.Lstar.Store.Store
+import LeanSpec.Networking.Allocation
 import LeanSpec.Networking.Config
 import LeanSpec.Networking.ReqResp
 import LeanSpec.SSZ.Boolean
