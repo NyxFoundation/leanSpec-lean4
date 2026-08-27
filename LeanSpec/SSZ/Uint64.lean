@@ -1,7 +1,7 @@
 /-
 SSZ Uint64 primitive.
 
-Mirrors `src/lean_spec/types/uint.py` in leanSpec:
+Mirrors `src/lean_spec/spec/ssz/uint.py` in leanSpec:
   - `class Uint64(BaseUint)` with `BITS = 64`
   - `__new__` enforces `0 <= value <= 2^64 - 1`
   - `encode_bytes`: `value.to_bytes(BITS // 8, byteorder="little")` (8 bytes LE)

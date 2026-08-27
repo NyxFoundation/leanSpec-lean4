@@ -1,6 +1,6 @@
 ---
 title: Spec Feedback Derived from the Lean 4 Proofs
-last_updated: 2026-07-03
+last_updated: 2026-07-25
 tags:
   - formal-verification
   - safety
@@ -271,6 +271,7 @@ turns a hidden assumption into a client-checkable rule.
 - Proof catalog: [`lean4-proof-propositions.md`](./lean4-proof-propositions.md).
 - Proof sources: `LeanSpec/Forks/Lstar/StateTransition.lean`, `Slot.lean`,
   `Containers/{Checkpoint,State,Identifiers}.lean`, `LeanSpec/SSZ/*.lean`.
-- Note: the four SSZ Lean files still cite the pre-#790 paths
-  `src/lean_spec/types/*.py`; the current paths are `src/lean_spec/spec/ssz/*.py`.
-  This is a citation-only drift with zero semantic impact (tracked separately).
+- Note: the four SSZ Lean files previously cited the pre-#790 paths
+  `src/lean_spec/types/*.py`; they now cite the current
+  `src/lean_spec/spec/ssz/*.py` (`boolean.py`, `uint.py`, `byte_arrays.py`,
+  `collections.py`). This was a citation-only drift with zero semantic impact.

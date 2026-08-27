@@ -13,14 +13,13 @@ chain anchor: `create_store` seeds the map with a block whose parent is
 outside the tree — the zero hash for a genesis anchor, an absent block
 for a checkpoint-sync anchor.
 
-This file also tracks the pending leanEthereum/leanSpec#1182 (head
-`5e1b7b51`, fixing issue #1171): right after the parent lookup,
-`on_block` bounds the block's slot before the empty-slot loop of the
-state transition runs — the slot may run at most
-`HISTORICAL_ROOTS_LIMIT` beyond the parent state
-(`BLOCK_SLOT_GAP_TOO_LARGE`), and at most one slot past the store clock
-(`BLOCK_TOO_FAR_IN_FUTURE`). Re-verify the mirrored guards against the
-merged diff when #1182 lands.
+This file also mirrors leanEthereum/leanSpec#1182 (merged as `4ca7d27e`,
+fixing issue #1171): right after the parent lookup, `on_block` bounds
+the block's slot before the empty-slot loop of the state transition
+runs — the slot may run at most `HISTORICAL_ROOTS_LIMIT` beyond the
+parent state (`BLOCK_SLOT_GAP_TOO_LARGE`), and at most one slot past
+the store clock (`BLOCK_TOO_FAR_IN_FUTURE`). Both guards are mirrored
+from the merged diff.
 
 Modeled as the guarded insertion `insertBlock` (the `on_block` gate
 sequence at the point a block enters the block map, with the upstream
@@ -61,10 +60,13 @@ must be known (`UNKNOWN_PARENT_BLOCK`), the slot may run at most
 `HISTORICAL_ROOTS_LIMIT` beyond the parent (`BLOCK_SLOT_GAP_TOO_LARGE`
 — the empty-slot loop in the transition runs once per slot from the
 parent to the block), and at most one slot past the store clock
-(`BLOCK_TOO_FAR_IN_FUTURE`), per the pending leanEthereum/leanSpec#1182.
-The insertion is the upstream `dict` assignment, replacing any entry
-with the same root. Python's negative slot gap and the truncated `Nat`
-subtraction both pass the gap guard. -/
+(`BLOCK_TOO_FAR_IN_FUTURE`), per leanEthereum/leanSpec#1182.
+The insertion is the upstream `dict` assignment; it replaces any entry
+with the same root, which upstream never exercises — `on_block`
+early-returns on a block already in the store, so the write is always
+fresh (`Store.onBlock` models that skip). Replace-by-key keeps this
+model total without it. Python's negative slot gap and the truncated
+`Nat` subtraction both pass the gap guard. -/
 def insertBlock (st : LeanSpec.Forks.Lstar.Store) (root : Root)
     (b : Block) : ST.Result LeanSpec.Forks.Lstar.Store :=
   match st.getState? b.parentRoot with
@@ -197,7 +199,7 @@ theorem parent_exists_or_genesis (st : LeanSpec.Forks.Lstar.Store)
   | inl hroot => exact .inl (hanchor p hp hroot)
   | inr hpresent => exact .inr hpresent
 
-/-! ## Horizon bounds (issue #1171, pending fix leanEthereum/leanSpec#1182) -/
+/-! ## Horizon bounds (issue #1171, fixed by leanEthereum/leanSpec#1182) -/
 
 /-- An accepted block names a stored parent state and sits at most
 `HISTORICAL_ROOTS_LIMIT` beyond it — the empty-slot loop the state

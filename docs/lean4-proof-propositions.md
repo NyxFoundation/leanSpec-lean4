@@ -1,6 +1,6 @@
 ---
 title: leanSpec → Lean4 Theorem Proving Proposition Catalog
-last_updated: 2026-07-20
+last_updated: 2026-07-25
 tags:
   - lean4
   - formal-verification
@@ -288,7 +288,7 @@ The propositions here guarantee that **the STF advances state as expected**: aft
 
 - [x] **ST-7: Checkpoint replacement is strictly forward (no same-slot root swap)**
   - Source: `process_attestations` / `process_block_header` (the `Checkpoint.advance_to` strict slot comparison and the `finalized < source.slot` finalization guard; `src/lean_spec/spec/forks/lstar/state_transition.py`)
-  - Note: ST-3/ST-6 bound only the checkpoint **slots** — they would still admit a transition that swaps `latest_justified` / `latest_finalized` to a different root at the same slot. This proposition closes that gap at the STF level: a successful transition either leaves each checkpoint unchanged **as a whole value (root included)** or replaces it with one at a strictly higher slot. The one designed exception is genesis anchoring (the first block force-assigns both checkpoints to its parent root at slot 0, filling in the genesis root), excluded by the `latestBlockHeader.slot ≠ 0` hypothesis. Cross-branch root *ancestry* is deliberately not an STF property — upstream leanEthereum/leanSpec#1182 documents on `Checkpoint.advance_to` that "selection is by slot only" and on `Store.latest_finalized` that the ancestry is a separate store invariant (future FC work).
+  - Note: ST-3/ST-6 bound only the checkpoint **slots** — they would still admit a transition that swaps `latest_justified` / `latest_finalized` to a different root at the same slot. This proposition closes that gap at the STF level: a successful transition either leaves each checkpoint unchanged **as a whole value (root included)** or replaces it with one at a strictly higher slot. The one designed exception is genesis anchoring (the first block force-assigns both checkpoints to its parent root at slot 0, filling in the genesis root), excluded by the `latestBlockHeader.slot ≠ 0` hypothesis. Cross-branch root *ancestry* is deliberately not an STF property — upstream leanEthereum/leanSpec#1179 documents on `Checkpoint.advance_to` that "selection is by slot only" and on `Store.latest_finalized` that the ancestry is a separate store invariant (future FC work).
   - Proved at: `LeanSpec/Forks/Lstar/CheckpointForward.lean` (`State.checkpoint_forward`; per-phase lemmas `applyJustification_forward`, `processAttestation_forward`, `processAttestations_forward`, and `processBlockHeader_checkpoints_of_ne_zero`)
   - Sample code:
 
@@ -387,7 +387,7 @@ The propositions here guarantee **fork-choice consistency**: `compute_head` is d
     ```
 
 - [x] **FC-6: `update_head` preserves the store invariants**
-  - Source: `update_head` (`src/lean_spec/spec/forks/lstar/fork_choice.py`; the finalized re-derivation loop, with the `Checkpoint.advance_to` / `Store.latest_finalized` invariant notes of leanEthereum/leanSpec#1182)
+  - Source: `update_head` (`src/lean_spec/spec/forks/lstar/fork_choice.py`; the finalized re-derivation loop, with the `Checkpoint.advance_to` / `Store.latest_finalized` invariant notes of leanEthereum/leanSpec#1179)
   - Note: `update_head` rewrites only `head` and `latest_finalized`, so five of the six `Store.WellFormed` clauses carry over untouched. The substantive clause is `justifiedDescendsFromFinalized`: the re-derived finalized checkpoint — the head chain's ancestor at the head state's finalized slot — must still sit on the justified chain. Proved from FC-2 (the head descends from the justified root), a descent lemma for the re-derivation walk, comparability of two ancestors of one block (parent links are unique), and completeness of the Boolean `_checkpoint_is_ancestor` walk against the relational ancestry (the fuel argument counts distinct stored blocks at or below the walk's position, which strictly shrinks each step). Two store invariants that `on_block` maintains outside `update_head`'s reach enter as explicit hypotheses rather than growing `WellFormed`: the justified checkpoint records its own block's slot, and no stored post-state finalizes past the store's justified slot (via ST-4).
   - Proved at: `LeanSpec/Forks/Lstar/Store/Ancestry.lean` (`Store.updateHead_wellFormed`; via `properAncestor_comparable` / `ancestors_comparable`, `descendToSlot_ancestorOrEqual`, `ancestorWalk_complete`, and `checkpointIsAncestor_of_ancestorOrEqual`)
   - Sample code:
@@ -571,7 +571,7 @@ The propositions here guarantee **chain-structure consistency and write atomicit
 - [x] **STOR-1: Every non-genesis Block has its parent in the store**
   - Source: `Database.add_block` (parent-existence precondition; no such database method exists in current leanSpec — the gate is `on_block`'s `UNKNOWN_PARENT_BLOCK` rejection in `src/lean_spec/spec/forks/lstar/fork_choice.py`, which runs before `SyncService._persist_block` writes anything)
   - Note: Each block in the store has a parent block root (`parent_root`); for non-genesis blocks the parent must exist in `store.blocks` (the `block_root → Block` map). The exception generalizes beyond genesis: `create_store` seeds the map with a chain anchor whose parent is outside the tree (zero hash for genesis, an absent block for a checkpoint-sync anchor), so the invariant is stated relative to the anchor root.
-  - Proved at: `LeanSpec/Storage/Blocks.lean` (`Store.parentsPresent_anchor` establishes the invariant at anchoring, `Store.parentsPresent_insertBlock` shows the parent-gated insertion preserves it — the gate reads the states map as upstream does, so the #1176 M-4 blocks-states alignment enters as a hypothesis — and `Store.parent_exists_or_genesis` is the catalog form on a genesis-anchored store). `insertBlock` also carries the horizon guards of the pending leanEthereum/leanSpec#1182 (fixing issue #1171): `insertBlock_slot_gap_bounded` and `insertBlock_within_horizon` bound an accepted block's slot against the parent and the store clock.
+  - Proved at: `LeanSpec/Storage/Blocks.lean` (`Store.parentsPresent_anchor` establishes the invariant at anchoring, `Store.parentsPresent_insertBlock` shows the parent-gated insertion preserves it — the gate reads the states map as upstream does, so the #1176 M-4 blocks-states alignment enters as a hypothesis — and `Store.parent_exists_or_genesis` is the catalog form on a genesis-anchored store). `insertBlock` also carries the horizon guards of leanEthereum/leanSpec#1182 (merged as `4ca7d27e`, fixing issue #1171): `insertBlock_slot_gap_bounded` and `insertBlock_within_horizon` bound an accepted block's slot against the parent and the store clock.
   - Sample code:
 
     ```lean

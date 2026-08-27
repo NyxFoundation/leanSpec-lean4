@@ -1,7 +1,7 @@
 /-
 SSZ Boolean primitive.
 
-Mirrors `src/lean_spec/types/boolean.py` in leanSpec:
+Mirrors `src/lean_spec/spec/ssz/boolean.py` in leanSpec:
   - `encode_bytes`: `True → 0x01`, `False → 0x00` (always 1 byte)
   - `decode_bytes`: accepts only a single byte that is 0x00 or 0x01;
                     anything else is a serialization error.
